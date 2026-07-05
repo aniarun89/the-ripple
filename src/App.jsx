@@ -1353,7 +1353,15 @@ function Style() {
 .sc-foot{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.08em;opacity:.7}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:520px){.panel{padding:26px 18px 22px}.wlabel{width:100px}}
+@media(max-width:520px){
+  .panel{padding:26px 18px 22px}
+  /* On phones, let the slider row wrap: label + slider on line 1,
+     value on line 2 right-aligned. Keeps the numeric value visible. */
+  .wslider{flex-wrap:wrap;gap:8px 12px}
+  .wlabel{width:auto;flex:1;min-width:0}
+  .wslider input[type="range"]{flex:1 1 100%;order:2;min-width:0}
+  .wval{width:auto;flex:0 0 auto;order:1;text-align:right}
+}
     `}</style>
   );
 }
