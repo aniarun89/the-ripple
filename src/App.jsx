@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { supabase } from './supabaseClient'
 
 /* =============================================================================
    THE RIPPLE — interactive animal-welfare impact explorer
@@ -645,6 +646,30 @@ export default function App() {
   }, [baseImpact, step, actions.length]);
 
   const animated = useCountUp(result.weightedLives);
+  // Anonymous submission logging — fires once when the user reaches results
+  // with actual actions. At top level (not inside if-block) to respect Rules of Hooks.
+  const loggedRef = useRef(false);
+  useEffect(() => {
+    if (step !== 5) return;
+    if (loggedRef.current) return;
+    if (!supabase) return;
+    if (actions.length === 0) return;
+    loggedRef.current = true;
+    supabase.from('submissions').insert({
+      region,
+      intensity,
+      species,
+      nonfood,
+      actions,
+      dials,
+      weights,
+      welfare_gap: welfareGap,
+      time_view: time,
+      scale_view: scale,
+    }, { returning: 'minimal' }).then(({ error }) => {
+      if (error) console.warn('Log failed:', error.message);
+    });
+  }, [step, actions.length]);
 
   const segmentMsg = useMemo(() => {
     if (intensity === "most_meals" || intensity === "most_days")
@@ -704,6 +729,7 @@ export default function App() {
     // No change picked → "starting line" state: lead with the footprint,
     // framed warmly, and offer one low-friction action to convert it into
     // a real ripple without going back a step.
+    
     if (actions.length === 0) {
       const ctx = { species, nonfood, intensity };
       const suggestion = suggestedAction(ctx);
@@ -990,6 +1016,9 @@ export default function App() {
               </div>
             )}
           </div>
+          <p className="privacy-note">
+            Your answers (not your identity) are logged anonymously to help improve this tool.
+          </p>
 
           <div className="nav">
             <button className="ghost" onClick={back}>← change my move</button>
@@ -1245,7 +1274,9 @@ function Style() {
 .amplify-note{text-align:center;font-size:13px;line-height:1.55;color:rgba(244,239,228,.6);
   font-style:italic;max-width:440px;margin:-8px auto 18px}
 .hypo{color:var(--rose);font-style:italic;font-size:13px}
-
+.privacy-note{font-size:11.5px;color:rgba(244,239,228,.4);text-align:center;
+  margin:14px auto 4px;font-style:italic;max-width:420px;line-height:1.5}
+  
 /* info icon + footprint panel */
 .result-head{display:flex;align-items:center;justify-content:center;gap:10px;position:relative}
 .info-btn{position:absolute;right:0;top:-2px;width:30px;height:30px;border-radius:50%;
