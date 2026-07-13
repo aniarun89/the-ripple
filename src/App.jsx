@@ -171,6 +171,23 @@ const DEFAULT_WEIGHTS = {
   honey: 0.001,
 };
 
+// Log-scale mapping for the moral-weight sliders. Each slider moves linearly on
+// a 0–1000 track, but we map it through an exponential so the low, decision-
+// critical values occupy most of the travel and the high values cluster near the
+// right — making people deliberate at the low end. `min`/`max` are the real value
+// bounds; `snap` is the rounding increment for the displayed value.
+const LOG_STEPS = 1000;
+function logSliderToValue(pos, min, max, snap = 0.5) {
+  const t = pos / LOG_STEPS; // 0..1
+  const v = min * Math.pow(max / min, t);
+  return Math.round(v / snap) * snap;
+}
+function logValueToSlider(v, min, max) {
+  const clamped = Math.min(max, Math.max(min, v));
+  const t = Math.log(clamped / min) / Math.log(max / min);
+  return Math.round(t * LOG_STEPS);
+}
+
 // Convert the slider-facing weights into per-species hen-equivalent weights
 // used by the impact/footprint math. Hen = 1 by definition.
 function speciesWeights(w) {
@@ -624,14 +641,13 @@ export default function App() {
   const [shareStatus, setShareStatus] = useState(null); // null | 'copied' | 'shared' | 'error'
 
   const handleShare = async () => {
-    const { flock } = buildFlock(result.cards);
-    const number = fmt(result.rawLives);
-    const timeLabel = TIMES.find((t) => t.key === time)?.label || "a year";
+    const { flock } = buildFlock(shareResult.cards);
+    const number = fmt(shareResult.rawLives);
     const shareText =
 `🌊 The Ripple
 
 ${flock}
-= ${number} animals over ${timeLabel}, from one small change
+= ${number} animals over a year, from one small change
 
 What's yours? → the-ripple.app`;
 
@@ -673,6 +689,13 @@ What's yours? → the-ripple.app`;
   const result = useMemo(() => computeImpact({
     region, intensity, species, actions, dials, weights, welfareGap, time, scale,
   }), [region, intensity, species, actions, dials, weights, welfareGap, time, scale]);
+
+  // Share always uses a FIXED, honest frame — you, over a year — no matter where
+  // the time/people scrubbers are set. A shared card that said "across the whole
+  // world over a lifetime" would be meaningless to whoever receives it.
+  const shareResult = useMemo(() => computeImpact({
+    region, intensity, species, actions, dials, weights, welfareGap, time: "year", scale: "you",
+  }), [region, intensity, species, actions, dials, weights, welfareGap]);
 
   // Normalized impact at "you, this year" — used to judge how small the outcome
   // is, independent of the current scrubber positions.
@@ -879,7 +902,12 @@ What's yours? → the-ripple.app`;
           {result.blended > 0 && (
             <p className="bn-blended">
               ≈ <strong>{fmt(result.blended)}</strong> weighted impact — lives and welfare combined, <em>by your values</em>.
-              <button className="blended-info" onClick={() => setShowMoral(true)}>set them ↓</button>
+              <button className="blended-info" onClick={() => {
+                setShowMoral(true);
+                setTimeout(() => {
+                  document.getElementById('moral-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 60);
+              }}>set them ↓</button>
             </p>
           )}
           <p className="bn-context">
@@ -979,7 +1007,7 @@ What's yours? → the-ripple.app`;
           </p>
 
           {/* moral weighting */}
-          <div className="moral">
+          <div className="moral" id="moral-panel">
             <button className="moral-toggle" onClick={() => setShowMoral((v) => !v)}>
               {showMoral ? "▾" : "▸"} How much is each animal's life worth to you? Set your own values.
             </button>
@@ -990,12 +1018,12 @@ What's yours? → the-ripple.app`;
                   The hen is the reference point. Drag any slider and the ranking above updates live.
                 </p>
 
-                {/* Fish: anchored as "1 hen = N fish" */}
+                {/* Fish: anchored as "1 hen = N fish", log-scaled slider */}
                 <div className="wslider">
                   <span className="wlabel">1 hen =</span>
-                  <input type="range" min="0.5" max="100" step="0.5"
-                    value={weights.henPerFish}
-                    onChange={(e) => setWeights({ ...weights, henPerFish: parseFloat(e.target.value) })} />
+                  <input type="range" min="0" max={LOG_STEPS} step="1"
+                    value={logValueToSlider(weights.henPerFish, 0.5, 100)}
+                    onChange={(e) => setWeights({ ...weights, henPerFish: logSliderToValue(parseInt(e.target.value), 0.5, 100) })} />
                   <span className="wval">{weights.henPerFish} fish</span>
                 </div>
 
@@ -1007,9 +1035,9 @@ What's yours? → the-ripple.app`;
                 ].map(([key, lbl]) => (
                   <div key={key} className="wslider">
                     <span className="wlabel">{lbl}</span>
-                    <input type="range" min="0.5" max="100" step="0.5"
-                      value={weights[key]}
-                      onChange={(e) => setWeights({ ...weights, [key]: parseFloat(e.target.value) })} />
+                    <input type="range" min="0" max={LOG_STEPS} step="1"
+                      value={logValueToSlider(weights[key], 0.5, 100)}
+                      onChange={(e) => setWeights({ ...weights, [key]: logSliderToValue(parseInt(e.target.value), 0.5, 100) })} />
                     <span className="wval">{weights[key]} hens</span>
                   </div>
                 ))}
@@ -1018,9 +1046,9 @@ What's yours? → the-ripple.app`;
                 {/* Welfare gap */}
                 <div className="wslider">
                   <span className="wlabel">Factory farm vs. free-range, how much worse?</span>
-                  <input type="range" min="1" max="100" step="1"
-                    value={welfareGap}
-                    onChange={(e) => setWelfareGap(parseFloat(e.target.value))} />
+                  <input type="range" min="0" max={LOG_STEPS} step="1"
+                    value={logValueToSlider(welfareGap, 1, 100)}
+                    onChange={(e) => setWelfareGap(logSliderToValue(parseInt(e.target.value), 1, 100, 1))} />
                   <span className="wval">{welfareGap}× worse</span>
                 </div>
 
@@ -1062,8 +1090,8 @@ What's yours? → the-ripple.app`;
             <p className="share-invite">Pass it on — help someone see their ripple.</p>
             <div className="share-card">
               <p className="sc-brand">🌊 The Ripple</p>
-              <p className="sc-flock">{buildFlock(result.cards).flock || "🐾"}</p>
-              <p className="sc-big">= {fmt(result.rawLives)} animals over {TIMES.find(t=>t.key===time)?.label}, from one small change</p>
+              <p className="sc-flock">{buildFlock(shareResult.cards).flock || "🐾"}</p>
+              <p className="sc-big">= {fmt(shareResult.rawLives)} animals over a year, from one small change</p>
               <p className="sc-foot">What's yours? · the-ripple.app</p>
             </div>
             <button className="share-btn" onClick={handleShare}>
