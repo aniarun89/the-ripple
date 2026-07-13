@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How The Ripple Works — methodology & sources</title>
+<meta name="description" content="Every assumption, source, and judgment call inside The Ripple's animal-impact calculator, laid out in plain language." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,400&family=Newsreader:ital,opsz@0,6..72;1,6..72&family=DM+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#0f1410; --paper:#f4efe4; --ink:#1a1f17;
+  --moss:#5b7a4a; --gold:#d9a441; --rose:#c96f5b;
+  --line:rgba(244,239,228,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:radial-gradient(120% 60% at 50% -5%, #1d2a1b 0%, var(--bg) 45%, #0a0d0a 100%);
+  background-attachment:fixed;
+  color:var(--paper);
+  font-family:'Newsreader',Georgia,serif;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  padding:0 20px 100px;
+}
+.wrap{max-width:720px;margin:0 auto}
+
+/* top bar */
+.topbar{max-width:720px;margin:0 auto;padding:26px 0 0;display:flex;justify-content:space-between;align-items:center}
+.back{font-family:'DM Mono',monospace;font-size:13px;letter-spacing:.04em;color:rgba(244,239,228,.6);text-decoration:none;transition:.15s}
+.back:hover{color:var(--gold)}
+.wordmark{font-family:'DM Mono',monospace;font-size:13px;letter-spacing:.12em;color:rgba(244,239,228,.5)}
+
+/* hero */
+.hero{padding:60px 0 40px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.eyebrow{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:20px}
+h1{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(36px,6vw,58px);line-height:1.0;letter-spacing:-.02em;margin-bottom:22px}
+.lede{font-size:clamp(17px,2.4vw,20px);line-height:1.55;color:rgba(244,239,228,.8);font-style:italic;max-width:600px}
+
+/* section headings */
+h2{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(24px,3.6vw,32px);line-height:1.15;letter-spacing:-.01em;margin:54px 0 6px}
+.h2-kicker{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--moss);margin-top:54px;margin-bottom:-2px;display:block}
+.h2-kicker + h2{margin-top:6px}
+h3{font-family:'Fraunces',serif;font-weight:600;font-size:20px;margin:32px 0 4px;color:var(--paper)}
+
+/* body */
+p{margin:16px 0;font-size:17px;color:rgba(244,239,228,.88)}
+p strong{color:var(--paper);font-weight:600}
+em{font-style:italic}
+a{color:var(--gold);text-decoration:underline;text-underline-offset:3px}
+.callout{background:rgba(91,122,74,.14);border-left:3px solid var(--moss);padding:16px 20px;border-radius:0 12px 12px 0;margin:22px 0;font-size:16px;line-height:1.6}
+.warn{background:rgba(201,111,91,.10);border-left:3px solid var(--rose)}
+
+/* tables */
+.table-scroll{overflow-x:auto;margin:24px 0;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+caption{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.06em;color:rgba(244,239,228,.5);text-align:left;padding-bottom:10px;caption-side:top}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left;font-family:'Newsreader',serif}
+thead th{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold);font-weight:500;border-bottom:1.5px solid rgba(217,164,65,.4)}
+tbody tr:hover{background:rgba(244,239,228,.03)}
+td{font-family:'DM Mono',monospace;font-size:13px;color:rgba(244,239,228,.85)}
+td:first-child{font-family:'Newsreader',serif;font-size:15px;color:var(--paper)}
+
+/* divider */
+.rule{border:none;border-top:1px solid var(--line);margin:20px 0}
+
+/* footer */
+.foot{margin-top:70px;padding-top:26px;border-top:1px solid var(--line);font-size:13.5px;color:rgba(244,239,228,.55);line-height:1.7}
+.foot strong{color:rgba(244,239,228,.75)}
+.foot-cta{margin-top:40px;text-align:center}
+.foot-cta a{display:inline-block;font-family:'Fraunces',serif;font-weight:600;font-size:18px;color:var(--ink);background:var(--gold);padding:14px 32px;border-radius:50px;text-decoration:none;box-shadow:0 8px 30px rgba(217,164,65,.3);transition:transform .2s,box-shadow .2s}
+.foot-cta a:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(217,164,65,.45)}
+
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="/">← back to the calculator</a>
+  <span class="wordmark">🌊 THE RIPPLE</span>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Methodology &amp; sources</p>
+    <h1>How The Ripple works</h1>
+    <p class="lede">A transparent account of every assumption, source, and judgment call inside this calculator. If something here seems wrong, we want to hear about it.</p>
+  </header>
+
+  <p><strong>The idea in one paragraph.</strong> The Ripple estimates how many animals are affected by what you eat, and how that changes when you change. It starts from your region's average consumption, adjusts it to your self-described diet, converts kilograms of food into numbers of animals using region-specific farm yields, and then applies the changes you say you'd like to try. The result is an estimate — honest, sourced where possible, and adjustable where the science is genuinely unsettled. It is not a precise measurement of your life. It is a directional picture built from public data and clearly stated assumptions, all of which are listed below.</p>
+
+  <span class="h2-kicker">Step 1</span>
+  <h2>Where you are sets the baseline</h2>
+  <p>Everything begins with your region, because what an "average" diet looks like varies enormously across the world. For each of the nine regions we store per-person consumption per year, compiled from public food-balance and consumption datasets — chiefly the FAO's food balance sheets, Our World in Data's meat and diet pages, the OECD-FAO Agricultural Outlook, FAOSTAT, and the Helgi Library's egg-consumption tables (data vintage roughly 2018–2021).</p>
+
+  <div class="table-scroll">
+  <table>
+    <caption>Per-person consumption, kg per year (fish &amp; seafood counted separately from land meat)</caption>
+    <thead>
+      <tr><th>Region</th><th>Chicken</th><th>Fish &amp; seafood</th><th>Pork</th><th>Beef</th><th>Mutton</th><th>Eggs</th><th>Dairy</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>India</td><td>3.5</td><td>7</td><td>0.3</td><td>0.8</td><td>0.6</td><td>4.1</td><td>80</td></tr>
+      <tr><td>US / Canada</td><td>50</td><td>22</td><td>30</td><td>37</td><td>0.5</td><td>15.8</td><td>255</td></tr>
+      <tr><td>Europe</td><td>27</td><td>24</td><td>33</td><td>14</td><td>1.5</td><td>16</td><td>235</td></tr>
+      <tr><td>South America</td><td>45</td><td>10</td><td>14</td><td>35</td><td>1</td><td>12</td><td>130</td></tr>
+      <tr><td>Arabia / N. Africa</td><td>25</td><td>13</td><td>0</td><td>8</td><td>6</td><td>8</td><td>90</td></tr>
+      <tr><td>China</td><td>15</td><td>39</td><td>30</td><td>6</td><td>4</td><td>21.8</td><td>35</td></tr>
+      <tr><td>Japan / Korea</td><td>18</td><td>45</td><td>20</td><td>9</td><td>0.5</td><td>19.8</td><td>50</td></tr>
+      <tr><td>South-East Asia</td><td>16</td><td>33</td><td>11</td><td>4</td><td>0.7</td><td>7</td><td>25</td></tr>
+      <tr><td>Global average</td><td>17</td><td>20</td><td>16</td><td>9</td><td>2</td><td>10.4</td><td>110</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><strong>Honesty notes.</strong> Multi-country regions ("Europe," "South-East Asia," "Arabia / N. Africa") are blends of very different countries — the blending and rounding is ours, not the source's. "Dairy" is total milk-equivalent (all dairy products traced back to milk), not just drinking milk. These figures are directional regional averages, not exact national statistics.</p>
+
+  <h3>What your region pre-fills (and why)</h3>
+  <p>To save you tapping through defaults, choosing a region pre-selects a plausible "median person" in the following steps. Every pre-selection can be changed with one tap.</p>
+  <p><strong>Diet intensity.</strong> All regions default to "Meat most days" except India, which defaults to "Eating less meat (2–3 meals/week)." India's exception rests on two things: its per-capita meat consumption is among the lowest in the world in FAO data, and survey evidence indicates an unusually large vegetarian-leaning population (Pew Research Center's 2021 survey of religion in India found roughly 39% of Indian adults describing themselves as vegetarian). The choice of "most days" as the default elsewhere is our modeling judgment for a typical omnivore, not a sourced statistic.</p>
+  <p><strong>What you eat.</strong> Rather than a hardcoded list, we apply a threshold rule to your region's data: a species is pre-checked if the average person there consumes at least a minimum number of animals per year (0.5 for chickens and fish; 0.05 for pigs; 0.02 for cattle and for goats/sheep). This is why pork is never pre-checked in Arabia / N. Africa (zero average consumption) and why beef and pork are not pre-checked for India (below threshold) while mutton is. Eggs and dairy are always pre-checked as near-universal foods; honey is never pre-checked because its use is niche. The threshold values themselves are our judgment calls.</p>
+  <p><strong>Beyond the plate.</strong> Leather is pre-checked everywhere on the assumption that leather goods are near-universal; wool, silk, and animal-tested cosmetics are opt-in. This is an assumption, not a sourced figure.</p>
+  <p>If you change anything by hand, your changes are respected — re-picking a region will no longer overwrite them.</p>
+
+  <span class="h2-kicker">Step 2</span>
+  <h2>Your diet scales the baseline</h2>
+  <p>Your answer to "Which sounds most like you right now?" scales the regional meat figures by a multiplier:</p>
+
+  <div class="table-scroll">
+  <table style="min-width:auto">
+    <thead><tr><th>Your answer</th><th>Meat multiplier</th></tr></thead>
+    <tbody>
+      <tr><td>Meat with most meals</td><td>× 1.7</td></tr>
+      <tr><td>Meat most days</td><td>× 1.15</td></tr>
+      <tr><td>Eating less meat (2–3 meals/week)</td><td>× 0.65</td></tr>
+      <tr><td>Meat on rare occasion (1–2/month)</td><td>× 0.28</td></tr>
+      <tr><td>Vegetarian / plant-based</td><td>× 0</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Two important details. First, the multiplier applies to <strong>meat only</strong> — eggs, dairy, and honey are governed purely by whether you tick them in "What do you eat," because a vegetarian's egg consumption shouldn't be zeroed by their meat answer. Second, these multipliers are <strong>our modeling assumptions</strong>: they translate self-described eating frequency into a fraction of the regional average, and there is no external dataset to cite for them. If you think they're mis-tuned, that's exactly the kind of feedback we want.</p>
+  <p>Anything you leave unchecked in "What do you eat" is set to zero for you, regardless of the regional average.</p>
+
+  <span class="h2-kicker">Step 3</span>
+  <h2>Kilograms become animals</h2>
+  <p>This is the heart of the calculator, and the reason a kilogram of chicken and a kilogram of beef are so different: the animals are different sizes.</p>
+  <p><strong>Meat.</strong> For each species, animals per year = kilograms consumed ÷ edible kilograms per animal. Crucially, the yield per animal is <strong>region-specific</strong>, because farming intensity differs: an industrial US broiler yields roughly 1.8&nbsp;kg of edible meat while a smaller Indian bird yields about 1.1&nbsp;kg; US beef cattle yield around 215&nbsp;kg edible while Indian cattle and buffalo average nearer 150&nbsp;kg. These come from FAO and industry carcass weights combined with standard dressing percentages.</p>
+
+  <div class="table-scroll">
+  <table>
+    <caption>Edible kg per animal, by region</caption>
+    <thead><tr><th>Region</th><th>Chicken</th><th>Pork</th><th>Beef</th><th>Mutton</th></tr></thead>
+    <tbody>
+      <tr><td>India</td><td>1.1</td><td>45</td><td>150</td><td>12</td></tr>
+      <tr><td>US / Canada</td><td>1.8</td><td>58</td><td>215</td><td>16</td></tr>
+      <tr><td>Europe</td><td>1.5</td><td>55</td><td>200</td><td>15</td></tr>
+      <tr><td>China</td><td>1.4</td><td>50</td><td>160</td><td>13</td></tr>
+      <tr><td>Others (range)</td><td>1.3–1.6</td><td>48–55</td><td>150–210</td><td>13–15</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout warn">
+    <p style="margin:0"><strong>Fish and seafood is our weakest number, and it means all seafood.</strong> The "Fish &amp; seafood" figure covers every aquatic animal eaten — finned fish, but also shrimp, prawns, crab, lobster, squid, octopus, clams, and mussels — because that is how the underlying FAO food-balance data is reported. So the <em>kilograms</em> genuinely represent all seafood. The weakness is in the conversion: we divide those kilograms by a single average edible weight of 0.25&nbsp;kg per animal, as if all seafood were one medium fish. In reality a kilo of shrimp is dozens of animals while a kilo of tuna is a fraction of one. Because small animals like shrimp dominate seafood by count, this <strong>undercounts</strong> the true number of sea animals affected. Treat every seafood figure as a floor, not a precise count. A future version will model the seafood mix properly.</p>
+  </div>
+
+  <p><strong>Eggs.</strong> We convert kilograms of eggs to egg count at 50&nbsp;g per egg (FAO shell-weight basis), then divide by the region's laying rate — from about 250 eggs per hen per year in India's mix of commercial and backyard systems to about 305 in fully industrial systems (Compassion in World Farming and International Egg Commission data). The result is expressed in <strong>hen-years of laying</strong>, not hen lives, because an egg doesn't map to a death the way a chicken dinner does.</p>
+  <p><strong>Milk.</strong> Litres consumed (kg ÷ 1.03 density) divided by the region's yield per dairy animal: roughly 1,500 litres per year for India's indigenous-cattle-and-buffalo blend, around 3,500 in China, 7,000 in Europe, and about 10,000 for a US Holstein (AHDB and FAO dairy-yield data). The result is <strong>cow-years of milking</strong>. One honest consequence: because Indian dairy animals yield far less per animal, a litre of milk in India ties up more animal-time than the same litre in the US — the calculator reflects this.</p>
+
+  <span class="h2-kicker">Step 4</span>
+  <h2>Your chosen changes reduce the baseline</h2>
+  <p>Every action card you see is conditional on your earlier answers — the calculator never offers you a change that doesn't apply to you. "Cut chicken" appears only if you eat chicken; "Switch to plant-based milk" only if you consume dairy; "Skip new leather" only if you selected leather. Each action carries an explicit relevance check against your selections.</p>
+  <p>Meal-based actions ("cut chicken twice a week") are additionally capped at your plausible consumption: someone who said they eat meat 2–3 times a week gets a dial that tops out around 3 meals, not 14. The weekly caps per diet level are our modeling assumptions.</p>
+  <div class="callout">
+    <p style="margin:0"><strong>Two kinds of help, never double-counted.</strong> <em>Lives</em> — animals never bred, caught, or slaughtered because demand fell. <em>Welfare</em> — animals still farmed but in better conditions. If your choices both remove some animals and improve conditions for others, the welfare improvement is applied only to the animals your reductions didn't already remove — the same animal is never counted twice.</p>
+  </div>
+
+  <span class="h2-kicker">The value sliders</span>
+  <h2>Where you take over</h2>
+  <p>Comparing a fish to a hen to a cow requires a judgment about how much each life counts. There is no settled scientific answer, so the calculator makes its starting assumption visible and hands you the dials.</p>
+  <p>Default weights are initialized from the <strong>Rethink Priorities Moral Weight Project</strong>, the most systematic published attempt to estimate "welfare ranges" across farmed species based on evidence about their capacity to feel (median estimates relative to a human: pig ≈ 0.52, chicken ≈ 0.33, carp ≈ 0.09, salmon ≈ 0.06). Converted to our hen-anchored sliders, the defaults are: 1 hen = 5 fish; 1 pig = 2 hens; 1 cow = 2 hens; 1 goat = 2 hens. Two caveats we want to be explicit about: Rethink Priorities did not study cattle or goats, so we map them to the pig estimate as a fellow large mammal — a documented assumption; and RP themselves stress these are welfare <em>ranges</em>, not direct exchange rates between lives. That's why every one of these is a slider, not a constant.</p>
+  <p>The counterintuitive upshot is worth naming: the research finds birds and mammals cluster within roughly a factor of two of each other in capacity to suffer, so the intuition that a cow "counts" fifty times more than a hen reflects size and salience rather than evidence about feeling. If your intuition disagrees, move the slider — the entire ranking recalculates from your values.</p>
+  <p>The <strong>factory-farm vs free-range multiplier</strong> defaults to 4×, informed by the Welfare Footprint Project's time-in-pain research showing that caged and intensive systems impose substantially longer durations of severe suffering than higher-welfare systems. This is genuinely uncertain terrain; the slider runs from 1× to 100×.</p>
+  <p>The optional human-comparison slider is deliberately decorative: it never enters any calculation. It exists as a reflection prompt, not a claim.</p>
+
+  <span class="h2-kicker">Reading the result</span>
+  <h2>Two numbers, two lenses</h2>
+  <p>The headline is a plain count: <strong>animals spared</strong> — the actual number of individual creatures whose lives your changes prevent from being bred, caught, or farmed. It equals the sum of the per-species cards below it, and it is deliberately un-weighted, so anyone can check the arithmetic.</p>
+  <p>Beneath it is a second figure: <strong>weighted impact, by your values</strong>. This blends lives spared with welfare improved, each adjusted by the moral weights and welfare gap <em>you</em> set on the sliders. It answers a different question — not "how many animals," but "how much does it matter, by my own ethics." Because it's driven entirely by your dials, it moves the moment you change them. Neither number is the "true" one; they're two honest lenses on the same action.</p>
+
+  <span class="h2-kicker">Time and scale</span>
+  <h2>Stretching the frame</h2>
+  <p>Your headline is shown, by default, for you over one year. You can rescale it across time (a day to a lifetime, with a lifetime counted as 55 remaining years) and across people (your household up to the whole world, using real regional populations). Larger scales are labeled hypothetical, because "if all of India did this" illustrates collective potential rather than your personal doing. When a result is very small per year, the default view opens at a longer horizon — the same habit, measured over how long it actually persists; the scrubbers always let you return to any frame.</p>
+
+  <span class="h2-kicker">Privacy</span>
+  <h2>What we log, and don't</h2>
+  <p>When you reach your results, we store your answers — region, diet level, foods, chosen changes, slider values — anonymously, with no name, email, account, or identity attached. We use this only to understand how people use the tool and improve it. Nothing is sold or shared.</p>
+
+  <span class="h2-kicker">Limitations</span>
+  <h2>Known limitations, in plain terms</h2>
+  <p>The seafood figure is the least precise in the model: it correctly includes all seafood by weight, but converts that weight using a single average fish size, which undercounts small animals like shrimp — so seafood counts should be read as a floor. Multi-country regions blend very different national diets. The diet-intensity multipliers and meal caps are modeling judgments without external citation. Honey and non-food impacts (leather, wool) are acknowledged in the interface but not yet meaningfully quantified. Elasticity is ignored: we assume one fewer chicken bought means one fewer chicken raised, whereas real markets respond partially — published estimates suggest the true effect of forgoing a unit of meat is somewhat less than one unit of production, so our lives figures are, if anything, modest overestimates on that dimension. And all consumption data carries the usual gap between food supplied and food actually eaten.</p>
+  <p>If you find an error, disagree with an assumption, or know a better data source, please tell us. This document changes when the model does.</p>
+
+  <div class="foot">
+    <strong>Primary sources:</strong> FAO food balance sheets and FAOSTAT; Our World in Data (meat and seafood consumption); OECD-FAO Agricultural Outlook; Helgi Library (egg consumption); AHDB / FAO (dairy yields per cow); Compassion in World Farming and International Egg Commission (laying rates and production systems); FAO and industry carcass-weight and dressing-percentage data; Rethink Priorities Moral Weight Project (default moral weights); Welfare Footprint Project (welfare-gap default); Pew Research Center 2021 (Indian vegetarianism).
+  </div>
+
+  <div class="foot-cta">
+    <a href="/">← See your ripple</a>
+  </div>
+
+</div>
+</body>
+</html>

@@ -195,7 +195,7 @@ const DEFAULT_WELFARE_GAP = 4;
 const SPECIES = [
   { key: "chicken", label: "Chicken", emoji: "🐔", animal: "hens",
     livesText: "never bred into a factory farm", welfareText: "live in better conditions" },
-  { key: "fish",    label: "Fish & seafood", emoji: "🐟", animal: "fish",
+  { key: "fish",    label: "Fish & seafood", emoji: "🐟", animal: "sea animals",
     livesText: "never caught or farmed", welfareText: "spared the worst conditions" },
   { key: "pork",    label: "Pork", emoji: "🐷", animal: "pigs",
     livesText: "never bred into a factory farm", welfareText: "live in better conditions" },
@@ -371,6 +371,28 @@ function buildScales(region) {
 
 /* ---- helpers ------------------------------------------------------------- */
 
+// Build an emoji "flock" from the user's results — a curiosity-piquing,
+// paste-anywhere share artifact. Groups animals so runs stay countable.
+const FLOCK_EMOJI = { chicken:"🐔", fish:"🐟", pork:"🐖", beef:"🐄", mutton:"🐐", eggs:"🥚", dairy:"🥛" };
+
+function buildFlock(cards) {
+  const counts = {};
+  (cards || []).forEach((c) => { if (c.kind === "lives") counts[c.sp] = (counts[c.sp] || 0) + c.count; });
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  if (total <= 0) return { flock: "" };
+  const perEmoji = total <= 20 ? 1 : total <= 200 ? 10 : Math.ceil(total / 20);
+  let glyphs = [];
+  Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([sp, n]) => {
+      const kk = Math.max(Math.round(n / perEmoji), n > 0 ? 1 : 0);
+      glyphs.push(...Array(kk).fill(FLOCK_EMOJI[sp] || "🐾"));
+    });
+  glyphs = glyphs.slice(0, 20);
+  const flock = [glyphs.slice(0, 10).join(""), glyphs.slice(10).join("")].filter(Boolean).join("\n");
+  return { flock };
+}
+
 const fmt = (n) => {
   if (n === 0) return "0";
   if (n < 1) return n.toFixed(2);
@@ -525,7 +547,7 @@ function computeImpact({ region, intensity, species, actions, dials, weights, we
 
   // build ranked impact cards, weighting by moral value
   const cards = [];
-  let weightedLives = 0, rawLives = 0, rawWelfare = 0;
+  let weightedLives = 0, rawLives = 0, rawWelfare = 0, weightedWelfare = 0;
   Object.entries(livesSaved).forEach(([sp, n]) => {
     if (n <= 0) return;
     const scaled = n * k;
@@ -539,11 +561,17 @@ function computeImpact({ region, intensity, species, actions, dials, weights, we
     const scaled = n * k;
     const w = (sw[sp] ?? 1) / welfareGap;
     rawWelfare += scaled;
+    weightedWelfare += scaled * w;
     cards.push({ sp, kind: "welfare", count: scaled, weighted: scaled * w });
   });
   cards.sort((a, b) => b.weighted - a.weighted);
 
-  return { cards, weightedLives, rawLives, rawWelfare, yearly };
+  // Blended, sentience-weighted impact: lives + welfare, each already carrying
+  // the user's per-species weights, with welfare discounted by welfareGap
+  // (baked into weightedWelfare above). Moves live as the user drags any slider.
+  const blended = weightedLives + weightedWelfare;
+
+  return { cards, weightedLives, rawLives, rawWelfare, weightedWelfare, blended, yearly };
 }
 
 // Current "as-is" footprint: what the user's diet costs animals per the chosen
@@ -593,7 +621,37 @@ export default function App() {
   const [scale, setScale] = useState("you");
   const [showMoral, setShowMoral] = useState(false);
   const [showFootprint, setShowFootprint] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [shareStatus, setShareStatus] = useState(null); // null | 'copied' | 'shared' | 'error'
+
+  const handleShare = async () => {
+    const { flock } = buildFlock(result.cards);
+    const number = fmt(result.rawLives);
+    const timeLabel = TIMES.find((t) => t.key === time)?.label || "a year";
+    const shareText =
+`🌊 The Ripple
+
+${flock}
+= ${number} animals over ${timeLabel}, from one small change
+
+What's yours? → the-ripple.app`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: shareText });
+        setShareStatus('shared');
+      } catch (err) {
+        if (err.name !== 'AbortError') setShareStatus('error');
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setShareStatus('copied');
+      setTimeout(() => setShareStatus(null), 2500);
+    } catch {
+      setShareStatus('error');
+    }
+  };
 
   // Tracks whether the user has manually edited steps 2–4. Until they do,
   // picking (or re-picking) a region re-seeds the median-person defaults.
@@ -620,7 +678,7 @@ export default function App() {
   // is, independent of the current scrubber positions.
   const baseImpact = useMemo(() => computeImpact({
     region, intensity, species, actions, dials, weights, welfareGap, time: "year", scale: "you",
-  }).weightedLives, [region, intensity, species, actions, dials, weights, welfareGap]);
+  }).rawLives, [region, intensity, species, actions, dials, weights, welfareGap]);
 
   // When a small result first loads, lift the DEFAULT view via honest amplifiers:
   //  - time: 10 years if modest, a lifetime if very small
@@ -645,12 +703,10 @@ export default function App() {
     // eslint-disable-next-line
   }, [baseImpact, step, actions.length]);
 
-  const animated = useCountUp(result.weightedLives);
-  // Anonymous submission logging — fires once when the user reaches results
-  // with actual actions. At top level (not inside if-block) to respect Rules of Hooks.
+  const animated = useCountUp(result.rawLives);
   const loggedRef = useRef(false);
   useEffect(() => {
-    if (step !== 5) return;
+    if (step !== 5) { loggedRef.current = false; return; }
     if (loggedRef.current) return;
     if (!supabase) return;
     if (actions.length === 0) return;
@@ -729,7 +785,6 @@ export default function App() {
     // No change picked → "starting line" state: lead with the footprint,
     // framed warmly, and offer one low-friction action to convert it into
     // a real ripple without going back a step.
-    
     if (actions.length === 0) {
       const ctx = { species, nonfood, intensity };
       const suggestion = suggestedAction(ctx);
@@ -819,8 +874,14 @@ export default function App() {
           </div>
           <div className="big-number">
             <span className="bn-num">{fmt(animated)}</span>
-            <span className="bn-unit">beings helped</span>
+            <span className="bn-unit">animals spared</span>
           </div>
+          {result.blended > 0 && (
+            <p className="bn-blended">
+              ≈ <strong>{fmt(result.blended)}</strong> weighted impact — lives and welfare combined, <em>by your values</em>.
+              <button className="blended-info" onClick={() => setShowMoral(true)}>set them ↓</button>
+            </p>
+          )}
           <p className="bn-context">
             over <strong>{TIMES.find(t => t.key === time)?.label}</strong>,
             across <strong>{scales.find(s => s.key === scale)?.label}</strong>
@@ -996,28 +1057,28 @@ export default function App() {
             )}
           </div>
 
-          {/* save / share */}
-          <div className="save-box">
-            {!saved ? (
-              <>
-                <p className="save-title">Save your ripple & track your journey</p>
-                <p className="muted small">We'll check in to help you find your next step — no spam, opt out anytime.</p>
-                <div className="save-btns">
-                  <button className="oauth" onClick={() => setSaved(true)}><span>G</span> Continue with Google</button>
-                  <button className="oauth dark" onClick={() => setSaved(true)}><span></span> Continue with Apple</button>
-                </div>
-                <button className="link-btn" onClick={() => setSaved(true)}>Just give me my share card →</button>
-              </>
-            ) : (
-              <div className="share-card">
-                <p className="sc-line">I'm not vegan.</p>
-                <p className="sc-big">I still help ~{fmt(result.weightedLives)} animals {TIMES.find(t=>t.key===time)?.label}.</p>
-                <p className="sc-foot">What's your ripple? · theripple.app</p>
-              </div>
-            )}
+          {/* share */}
+          <div className="share-box">
+            <p className="share-invite">Pass it on — help someone see their ripple.</p>
+            <div className="share-card">
+              <p className="sc-brand">🌊 The Ripple</p>
+              <p className="sc-flock">{buildFlock(result.cards).flock || "🐾"}</p>
+              <p className="sc-big">= {fmt(result.rawLives)} animals over {TIMES.find(t=>t.key===time)?.label}, from one small change</p>
+              <p className="sc-foot">What's yours? · the-ripple.app</p>
+            </div>
+            <button className="share-btn" onClick={handleShare}>
+              {shareStatus === 'copied' ? '✓ Copied — paste it anywhere' :
+               shareStatus === 'shared' ? '✓ Shared!' :
+               shareStatus === 'error' ? 'Try again' :
+               'Share your ripple →'}
+            </button>
           </div>
+
           <p className="privacy-note">
             Your answers (not your identity) are logged anonymously to help improve this tool.
+          </p>
+          <p className="method-link">
+            <a href="/methodology.html" target="_blank" rel="noopener">How is this calculated?</a>
           </p>
 
           <div className="nav">
@@ -1271,12 +1332,16 @@ function Style() {
 .bn-unit{display:block;font-family:'Fraunces',serif;font-style:italic;font-size:22px;color:var(--paper);margin-top:6px}
 .bn-context{text-align:center;color:rgba(244,239,228,.65);font-size:15px;margin-bottom:18px}
 .bn-context strong{color:var(--paper)}
+.bn-blended{text-align:center;color:rgba(244,239,228,.7);font-size:14px;line-height:1.5;
+  max-width:440px;margin:2px auto 14px}
+.bn-blended strong{color:var(--gold);font-family:'DM Mono',monospace}
+.bn-blended em{font-style:italic;color:var(--paper)}
+.blended-info{background:none;border:none;color:var(--gold);font-family:inherit;font-size:13px;
+  cursor:pointer;text-decoration:underline;text-underline-offset:2px;margin-left:6px;padding:0}
 .amplify-note{text-align:center;font-size:13px;line-height:1.55;color:rgba(244,239,228,.6);
   font-style:italic;max-width:440px;margin:-8px auto 18px}
 .hypo{color:var(--rose);font-style:italic;font-size:13px}
-.privacy-note{font-size:11.5px;color:rgba(244,239,228,.4);text-align:center;
-  margin:14px auto 4px;font-style:italic;max-width:420px;line-height:1.5}
-  
+
 /* info icon + footprint panel */
 .result-head{display:flex;align-items:center;justify-content:center;gap:10px;position:relative}
 .info-btn{position:absolute;right:0;top:-2px;width:30px;height:30px;border-radius:50%;
@@ -1370,18 +1435,19 @@ function Style() {
 .link-btn:hover{color:var(--paper)}
 
 /* save */
-.save-box{background:rgba(244,239,228,.04);border:1px solid var(--line);border-radius:18px;padding:22px;text-align:center}
-.save-title{font-family:'Fraunces',serif;font-weight:600;font-size:20px;margin-bottom:6px}
-.save-btns{display:flex;flex-direction:column;gap:10px;max-width:300px;margin:16px auto 12px}
-.oauth{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border-radius:30px;
-  background:var(--paper);color:var(--ink);border:none;font-family:'Fraunces',serif;font-weight:600;font-size:15px;cursor:pointer;transition:.15s}
-.oauth:hover{transform:translateY(-1px)}
-.oauth.dark{background:#000;color:#fff}
-.oauth span{font-weight:900}
-.share-card{background:linear-gradient(135deg,#3f5a32,#5b7a4a);border-radius:16px;padding:30px 24px;animation:fadeUp .4s both}
-.sc-line{font-family:'Fraunces',serif;font-style:italic;font-size:18px;opacity:.85}
-.sc-big{font-family:'Fraunces',serif;font-weight:900;font-size:26px;line-height:1.15;margin:6px 0 16px}
+.share-box{background:rgba(244,239,228,.04);border:1px solid var(--line);border-radius:18px;padding:22px;text-align:center}
+.share-invite{font-family:'Fraunces',serif;font-style:italic;font-size:17px;color:rgba(244,239,228,.85);margin-bottom:16px;line-height:1.4}
+.share-card{background:linear-gradient(135deg,#3f5a32,#5b7a4a);border-radius:16px;padding:26px 22px;animation:fadeUp .4s both}
+.sc-brand{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.1em;opacity:.75;margin-bottom:12px}
+.sc-flock{font-size:26px;line-height:1.35;letter-spacing:2px;white-space:pre-line;margin-bottom:12px}
+.sc-big{font-family:'Fraunces',serif;font-weight:600;font-size:18px;line-height:1.3;margin:6px 0 14px}
 .sc-foot{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.08em;opacity:.7}
+.share-btn{display:block;width:100%;margin-top:14px;padding:15px 24px;background:var(--gold);color:var(--ink);border:none;border-radius:50px;font-family:'Fraunces',serif;font-weight:600;font-size:17px;cursor:pointer;transition:transform .2s,box-shadow .2s;box-shadow:0 6px 20px rgba(217,164,65,.28)}
+.share-btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(217,164,65,.4)}
+.share-btn:active{transform:translateY(0)}
+.privacy-note{font-size:11.5px;color:rgba(244,239,228,.4);text-align:center;margin:14px auto 4px;font-style:italic;max-width:420px;line-height:1.5}
+.method-link{text-align:center;margin-top:6px;font-size:13px}
+.method-link a{color:var(--gold);text-decoration:underline;text-underline-offset:3px}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:520px){
