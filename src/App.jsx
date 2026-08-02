@@ -1108,6 +1108,9 @@ What's yours? → the-ripple.app`;
           <p className="method-link">
             <a href="/methodology.html" target="_blank" rel="noopener">How is this calculated?</a>
           </p>
+          <p className="byline">
+            Questions, corrections, or disagreements — I'm at <a href="https://x.com/categorical_imp" target="_blank" rel="noopener">@categorical_imp</a> and write more at <a href="https://anirudharun.substack.com/" target="_blank" rel="noopener">Substack</a>.
+          </p>
 
           <div className="nav">
             <button className="ghost" onClick={back}>← change my move</button>
@@ -1476,6 +1479,10 @@ function Style() {
 .privacy-note{font-size:11.5px;color:rgba(244,239,228,.4);text-align:center;margin:14px auto 4px;font-style:italic;max-width:420px;line-height:1.5}
 .method-link{text-align:center;margin-top:6px;font-size:13px}
 .method-link a{color:var(--gold);text-decoration:underline;text-underline-offset:3px}
+.byline{text-align:center;margin-top:10px;font-size:12.5px;color:rgba(244,239,228,.38);
+  line-height:1.6;max-width:440px;margin-left:auto;margin-right:auto}
+.byline a{color:rgba(244,239,228,.58);text-decoration:underline;text-underline-offset:3px;transition:.15s}
+.byline a:hover{color:var(--gold)}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:520px){
