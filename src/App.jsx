@@ -139,6 +139,7 @@ function defaultSpeciesForRegion(region) {
   SPECIES.forEach((s) => {
     if (excluded.includes(s.key)) return;
     if (s.key === "eggs" || s.key === "dairy") { out.push(s.key); return; } // near-universal
+    if (s.nonFood) return;         // wool etc. come from the non-food step
     if (s.key === "honey") return; // niche, off by default
     const thr = THRESH[s.key] ?? 0.05;
     if ((base[s.key] || 0) >= thr) out.push(s.key);
@@ -199,6 +200,7 @@ function speciesWeights(w) {
     mutton: w.goat,
     eggs: 1,        // a laying hen is a hen — tied to the anchor
     dairy: w.cow,   // a dairy cow is a cow — follows the cow slider per spec
+    wool: w.goat,   // a wool sheep is a sheep — follows the goat/sheep slider
     honey: w.honey,
   };
 }
@@ -208,6 +210,35 @@ function speciesWeights(w) {
 // caged/intensive systems impose far longer durations of disabling & hurtful
 // pain than free-range. Genuinely uncertain; user-adjustable (1–100×).
 const DEFAULT_WELFARE_GAP = 4;
+
+// ---- NON-FOOD & DONATION CONSTANTS (sourced) -----------------------------
+// WOOL: sheep are shorn repeatedly and live on, so wool costs sheep-YEARS, not
+// lives — the same logic as eggs (hen-years) and dairy (cow-years).
+// IWTO puts average fleece at ~4.5 kg greasy wool per sheep per year; scouring
+// yields roughly 60% clean wool, so ~2.7 kg usable wool per sheep-year.
+// A typical wool garment (sweater/jumper) uses ~0.45 kg clean wool.
+const WOOL_KG_PER_SHEEP_YEAR = 2.7;
+const WOOL_KG_PER_GARMENT = 0.45;
+const SHEEP_YEARS_PER_GARMENT = WOOL_KG_PER_GARMENT / WOOL_KG_PER_SHEEP_YEAR; // ≈0.167
+
+// LEATHER: one bovine hide ≈ 4.5 m²; a typical leather item (averaging shoes,
+// belts and bags) ≈ 0.15 m². We attribute the PHYSICAL share of hide used — the
+// fraction of one animal's skin your purchase consumes. This is transparent and
+// checkable (area ÷ area). Note the alternative view: leather is a low-value
+// co-product of an animal killed for meat (hides are ~1–8% of cattle value), so
+// the *marginal* effect of one purchase on slaughter numbers is far smaller than
+// the physical share suggests. We report the physical share and disclose this.
+const HIDE_AREA_M2 = 4.5;
+const LEATHER_M2_PER_ITEM = 0.15;
+const CATTLE_PER_LEATHER_ITEM = LEATHER_M2_PER_ITEM / HIDE_AREA_M2; // ≈0.033
+
+// DONATIONS: corporate cage-free campaigns are the best-evidenced intervention.
+// Published cost-effectiveness estimates vary ~50x: ACE ~11 hens/$, Sinergia ~53
+// hens/$, Šimčikas 12–160 hen-years/$, some recommended charities ~3 hens/$. The
+// Humane League's own model is more conservative (no multiplication by years
+// averted). We use 3 — at or below the lowest published central estimate.
+// These are WELFARE improvements (hens moved out of cages), not lives spared.
+const HEN_YEARS_PER_DOLLAR = 3;
 
 const SPECIES = [
   { key: "chicken", label: "Chicken", emoji: "🐔", animal: "hens",
@@ -226,6 +257,10 @@ const SPECIES = [
     livesText: "of dairy-cow life not demanded", welfareText: "of milking freed from confinement" },
   { key: "honey",   label: "Honey", emoji: "🍯", animal: "bee colonies",
     livesText: "not farmed for honey", welfareText: "managed more gently" },
+  // Non-food species: never shown in "What do you eat", only produced by
+  // non-food actions. Sheep are shorn and live on, so wool costs sheep-YEARS.
+  { key: "wool",    label: "Wool", emoji: "🐑", animal: "sheep-years", nonFood: true,
+    livesText: "of sheep life not demanded for wool", welfareText: "shorn in better conditions" },
 ];
 
 const NONFOOD = [
@@ -301,20 +336,26 @@ const ACTIONS = [
     relevant: (c) => c.species.some((s) => ["chicken","fish","pork","beef","mutton","eggs","dairy"].includes(s)),
     apply: (d) => { const f = d / 100; return { chicken: f, fish: f, pork: f, beef: f, mutton: f, eggs: f, dairy: f }; } },
 
-  { key: "leather", emoji: "🧥", title: "Skip new leather", blurb: "Choose non-animal materials this year",
-    dialLabel: "commitment", dialMax: 100, dialDefault: 100,
+  // --- Non-food actions: ABSOLUTE amounts, not fractions of a food baseline ---
+  { key: "leather", emoji: "🧥", title: "Skip new leather", blurb: "Choose non-animal materials instead",
+    absolute: true, dialLabel: "leather items / year", dialMax: 8, dialDefault: 2,
     relevant: (c) => c.nonfood.includes("leather"),
-    apply: () => ({ beef: 0.02 }) }, // PLACEHOLDER tiny coupling
+    // The physical share of one animal's hide your purchase uses. The marginal
+    // effect on slaughter is smaller still, since leather is a co-product —
+    // see the methodology page.
+    applyAbsolute: (d) => ({ beef: d * CATTLE_PER_LEATHER_ITEM }) },
 
   { key: "no_wool", emoji: "🧶", title: "Skip new wool", blurb: "Choose plant or synthetic fibres",
-    dialLabel: "commitment", dialMax: 100, dialDefault: 100,
+    absolute: true, dialLabel: "wool items / year", dialMax: 8, dialDefault: 2,
     relevant: (c) => c.nonfood.includes("wool"),
-    apply: () => ({}) }, // PLACEHOLDER — welfare-only, no life math yet
+    // Sheep are shorn repeatedly and live on — this is sheep-years, not lives.
+    applyAbsolute: (d) => ({ wool: d * SHEEP_YEARS_PER_GARMENT }) },
 
-  { key: "donate", emoji: "💛", title: "Support effective charities", blurb: "A small donation spares many animals per dollar",
-    dialLabel: "$ / month", dialMax: 50, dialDefault: 10,
+  { key: "donate", emoji: "💛", title: "Support effective charities", blurb: "Corporate campaigns reach far more animals per rupee/dollar than diet alone",
+    donation: true, dialLabel: "$ / month", dialMax: 50, dialDefault: 10,
     relevant: () => true, // always available, esp. for the already-plant-based
-    apply: (d) => ({ chicken: d * 0.4 }) }, // PLACEHOLDER cost-per-animal coupling
+    // Handled in its own lane — welfare improvement measured in hen-years.
+    applyDonation: (d) => d * 12 * HEN_YEARS_PER_DOLLAR },
 ];
 
 // The single lowest-friction suggested action for someone who picked nothing,
@@ -528,6 +569,12 @@ function computeImpact({ region, intensity, species, actions, dials, weights, we
   // animal being counted in both buckets (the 666-vs-95 double count).
   const livesFrac = {};
   const welfareFrac = {};
+  // Absolute additions (non-food items) don't scale off a food baseline — you
+  // can skip leather without eating beef — so they're accumulated separately
+  // in animal counts, then scaled by time/scale at the end.
+  const absLives = {};
+  // Donations live in their own lane entirely (see below).
+  let donationHenYears = 0;
 
   actions.forEach((aKey) => {
     const action = ACTIONS.find((a) => a.key === aKey);
@@ -535,6 +582,15 @@ function computeImpact({ region, intensity, species, actions, dials, weights, we
     const mealCap = meatMealsPerWeek(region, intensity);
     const effMax = action.mealBased ? Math.max(1, Math.min(action.dialMax, Math.round(mealCap))) : action.dialMax;
     const dial = Math.min(dials[aKey] ?? Math.min(action.dialDefault, effMax), effMax);
+
+    if (action.donation) { donationHenYears += action.applyDonation(dial); return; }
+    if (action.absolute) {
+      Object.entries(action.applyAbsolute(dial)).forEach(([sp, n]) => {
+        absLives[sp] = (absLives[sp] || 0) + n;
+      });
+      return;
+    }
+
     const reductions = action.apply(dial, effMax);
     Object.entries(reductions).forEach(([sp, frac]) => {
       const bucket = action.welfareOnly ? welfareFrac : livesFrac;
@@ -556,6 +612,13 @@ function computeImpact({ region, intensity, species, actions, dials, weights, we
     const wf = wfRaw * (1 - lf); // welfare applies only to the surviving share
     if (lf > 0) livesSaved[sp] = yr * lf;
     if (wf > 0) welfareImp[sp] = yr * wf;
+  });
+
+  // Fold in absolute (non-food) contributions. These bypass the food baseline
+  // entirely — you can skip leather without eating beef, or wool with no
+  // dietary link at all.
+  Object.entries(absLives).forEach(([sp, n]) => {
+    if (n > 0) livesSaved[sp] = (livesSaved[sp] || 0) + n;
   });
 
   const tf = TIMES.find((t) => t.key === time)?.factor ?? 1;
@@ -588,7 +651,14 @@ function computeImpact({ region, intensity, species, actions, dials, weights, we
   // (baked into weightedWelfare above). Moves live as the user drags any slider.
   const blended = weightedLives + weightedWelfare;
 
-  return { cards, weightedLives, rawLives, rawWelfare, weightedWelfare, blended, yearly };
+  // Donations sit in their OWN lane. Not a category distinction — cage-free eggs
+  // is also a welfare improvement and it does feed `blended`. The real reason is
+  // structural: every other number here measures what the user's own consumption
+  // asks of animals, whereas a donation buys change beyond their footprint. Hence
+  // scaled by time but not by people-scale, and reported separately.
+  const donationYears = donationHenYears * tf;
+
+  return { cards, weightedLives, rawLives, rawWelfare, weightedWelfare, blended, donationYears, yearly };
 }
 
 // Current "as-is" footprint: what the user's diet costs animals per the chosen
@@ -918,6 +988,22 @@ What's yours? → the-ripple.app`;
             across <strong>{scales.find(s => s.key === scale)?.label}</strong>
             {scale !== "you" && <span className="hypo"> (hypothetical)</span>}
           </p>
+          {result.donationYears > 0 && (
+            <div className="donation-lane">
+              <span className="dl-emoji">💛</span>
+              <div className="dl-body">
+                <p className="dl-num">
+                  + {fmt(result.donationYears)} <span className="dl-unit">hen-years improved</span>
+                </p>
+                <p className="dl-note">
+                  through your donation, over the same period. Kept separate because
+                  it isn't a change to your own footprint — it's money spent to shift
+                  the system beyond what you consume. Published estimates vary about
+                  fiftyfold; we use one at the conservative end.
+                </p>
+              </div>
+            </div>
+          )}
           {baseImpact > 0 && baseImpact < 8 && (time !== "year" || scale !== "you") && (
             <p className="amplify-note">
               A single year for one person is a small number — so we're showing a
@@ -1165,7 +1251,7 @@ What's yours? → the-ripple.app`;
 
         {step === 2 && (() => {
           const excluded = INTENSITY[intensity]?.excludes ?? [];
-          const shown = SPECIES.filter((s) => !excluded.includes(s.key));
+          const shown = SPECIES.filter((s) => !excluded.includes(s.key) && !s.nonFood);
           const isVeg = intensity === "veg_eggs" || intensity === "vegetarian" || intensity === "plant";
           return (
           <>
@@ -1375,6 +1461,18 @@ function Style() {
 .amplify-note{text-align:center;font-size:13px;line-height:1.55;color:rgba(244,239,228,.6);
   font-style:italic;max-width:440px;margin:-8px auto 18px}
 .hypo{color:var(--rose);font-style:italic;font-size:13px}
+
+/* donation lane — deliberately visually separate from the ripple total */
+.donation-lane{display:flex;gap:14px;align-items:flex-start;
+  background:rgba(217,164,65,.07);border:1px dashed rgba(217,164,65,.35);
+  border-radius:16px;padding:16px 18px;margin:0 auto 20px;max-width:520px;
+  animation:fadeUp .4s both}
+.dl-emoji{font-size:24px;flex-shrink:0;line-height:1.2}
+.dl-body{flex:1}
+.dl-num{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--gold);
+  line-height:1.2;margin-bottom:6px}
+.dl-unit{font-family:'Fraunces',serif;font-style:italic;font-weight:400;font-size:16px;color:var(--paper)}
+.dl-note{font-size:12.5px;line-height:1.55;color:rgba(244,239,228,.62)}
 
 /* info icon + footprint panel */
 .result-head{display:flex;align-items:center;justify-content:center;gap:10px;position:relative}
