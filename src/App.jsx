@@ -785,10 +785,10 @@ What's yours? → the-ripple.app`;
         <div className="hero">
           <p className="kicker">no purity tests · no guilt · just the numbers</p>
           <h1 className="hero-h1">
-            You don't have to be vegan<br /><span className="ink">to matter.</span>
+            How many animals<br /><span className="ink">does your life touch?</span>
           </h1>
           <p className="hero-sub">
-            Every meal is a small vote for the kind of world you want.
+            More than you'd guess, and fewer than you fear.
             Answer five quick things and watch what even tiny changes add up to.
           </p>
           <button className="cta" onClick={() => setStep(0)}>
