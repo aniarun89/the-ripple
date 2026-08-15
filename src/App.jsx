@@ -647,7 +647,7 @@ export default function App() {
 `🌊 The Ripple
 
 ${flock}
-= ${number} animals over a year, from one small change
+= ${number} animals over 10 years, from one small change
 
 What's yours? → the-ripple.app`;
 
@@ -690,11 +690,14 @@ What's yours? → the-ripple.app`;
     region, intensity, species, actions, dials, weights, welfareGap, time, scale,
   }), [region, intensity, species, actions, dials, weights, welfareGap, time, scale]);
 
-  // Share always uses a FIXED, honest frame — you, over a year — no matter where
-  // the time/people scrubbers are set. A shared card that said "across the whole
-  // world over a lifetime" would be meaningless to whoever receives it.
+  // Share always uses a FIXED, honest frame — you, over 10 years — no matter
+  // where the time/people scrubbers are set. Fixed so every shared card is
+  // directly comparable between friends; 10 years because a habit is an identity,
+  // not a one-year experiment, and a single year understates real commitments
+  // (dropping beef entirely is ~0.6 animals a year, which reads as failure).
+  // A decade is the largest frame that stays plainly defensible.
   const shareResult = useMemo(() => computeImpact({
-    region, intensity, species, actions, dials, weights, welfareGap, time: "year", scale: "you",
+    region, intensity, species, actions, dials, weights, welfareGap, time: "decade", scale: "you",
   }), [region, intensity, species, actions, dials, weights, welfareGap]);
 
   // Normalized impact at "you, this year" — used to judge how small the outcome
@@ -1091,7 +1094,7 @@ What's yours? → the-ripple.app`;
             <div className="share-card">
               <p className="sc-brand">🌊 The Ripple</p>
               <p className="sc-flock">{buildFlock(shareResult.cards).flock || "🐾"}</p>
-              <p className="sc-big">= {fmt(shareResult.rawLives)} animals over a year, from one small change</p>
+              <p className="sc-big">= {fmt(shareResult.rawLives)} animals over 10 years, from one small change</p>
               <p className="sc-foot">What's yours? · the-ripple.app</p>
             </div>
             <button className="share-btn" onClick={handleShare}>
