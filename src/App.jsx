@@ -639,7 +639,14 @@ function computeImpact({ region, intensity, species, actions, dials, weights, we
   Object.entries(welfareImp).forEach(([sp, n]) => {
     if (n <= 0) return;
     const scaled = n * k;
-    const w = (sw[sp] ?? 1) / welfareGap;
+    // Exchange rate between welfare and lives. If factory suffering is G units
+    // per animal-year and free-range is 1, then sparing a life avoids G units
+    // while moving factory→free-range avoids G-1. So an improvement is worth
+    // (G-1)/G of a spared life: 0 at 1× (systems identical, no benefit), 0.75
+    // at 4×, ~0.99 at 100× (escaping is nearly as good as never entering).
+    // NOTE: this assumes a farmed life is net-negative, so sparing it removes
+    // all its suffering. See the methodology page.
+    const w = (sw[sp] ?? 1) * ((welfareGap - 1) / welfareGap);
     rawWelfare += scaled;
     weightedWelfare += scaled * w;
     cards.push({ sp, kind: "welfare", count: scaled, weighted: scaled * w });
@@ -1140,6 +1147,10 @@ What's yours? → the-ripple.app`;
                     onChange={(e) => setWelfareGap(logSliderToValue(parseInt(e.target.value), 1, 100, 1))} />
                   <span className="wval">{welfareGap}× worse</span>
                 </div>
+                <div className="wanchors">
+                  <span>1× — no difference</span>
+                  <span>100× — factory is hell</span>
+                </div>
 
                 {/* Brave: optional human comparison */}
                 <button className="brave-toggle" onClick={() => setShowBrave((v) => !v)}>
@@ -1558,6 +1569,8 @@ function Style() {
 .wslider{display:flex;align-items:center;gap:12px;margin:11px 0}
 .wlabel{font-size:13px;width:140px;flex-shrink:0;color:rgba(244,239,228,.8)}
 .wval{font-family:'DM Mono',monospace;font-size:12px;color:var(--gold);width:110px;text-align:right;flex-shrink:0}
+.wanchors{display:flex;justify-content:space-between;font-size:11px;font-style:italic;
+  color:rgba(244,239,228,.42);margin:-4px 0 10px;line-height:1.4}
 .brave-toggle{background:none;border:none;color:var(--rose);font-family:'Fraunces',serif;
   font-style:italic;font-size:14px;cursor:pointer;text-align:left;margin-top:14px;display:block}
 .brave-body{background:rgba(201,111,91,.08);border:1px solid rgba(201,111,91,.22);
